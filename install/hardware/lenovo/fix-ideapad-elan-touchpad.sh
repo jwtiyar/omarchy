@@ -22,8 +22,9 @@ ExecStart=/bin/bash -c '\
     echo on > /sys/devices/pci0000:00/0000:00:15.0/power/control 2>/dev/null; \
     echo on > /sys/devices/pci0000:00/0000:00:15.0/i2c_designware.0/power/control 2>/dev/null; \
     has_touchpad() { \
-        for dev in /sys/class/input/event*; do \
-            [ -e "$dev" ] || continue; \
+        local class_path="${OMARCHY_INPUT_CLASS_PATH:-/sys/class/input}"; \
+        for dev in "$class_path"/event*; do \
+            [[ -e $dev ]] || continue; \
             if udevadm info --query=property "$dev" 2>/dev/null | grep -Fxq "ID_INPUT_TOUCHPAD=1"; then \
                 return 0; \
             fi; \
