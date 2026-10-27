@@ -21,7 +21,16 @@ RemainAfterExit=yes
 ExecStart=/bin/bash -c '\
     echo on > /sys/devices/pci0000:00/0000:00:15.0/power/control 2>/dev/null; \
     echo on > /sys/devices/pci0000:00/0000:00:15.0/i2c_designware.0/power/control 2>/dev/null; \
-    if ! grep -qi elan /proc/bus/input/devices; then \
+    has_touchpad() { \
+        for dev in /sys/class/input/event*; do \
+            [ -e "$dev" ] || continue; \
+            if udevadm info --query=property "$dev" 2>/dev/null | grep -Fxq "ID_INPUT_TOUCHPAD=1"; then \
+                return 0; \
+            fi; \
+        done; \
+        return 1; \
+    }; \
+    if ! has_touchpad; then \
         echo i2c_designware.0 > /sys/bus/platform/drivers/i2c_designware/unbind 2>/dev/null; \
         sleep 1; \
         echo i2c_designware.0 > /sys/bus/platform/drivers/i2c_designware/bind 2>/dev/null; \
@@ -37,4 +46,10 @@ EOF
 
   sudo systemctl daemon-reload
   sudo systemctl enable omarchy-ideapad-touchpad-fix.service
+
+  # An image's first boot runs hardware setup after multi-user.target has queued,
+  # so start the service with --no-block so first-boot image users get recovery immediately.
+  if [[ ${OMARCHY_IMAGE_DEFERRED_HARDWARE:-} == "1" ]]; then
+    sudo systemctl start --no-block omarchy-ideapad-touchpad-fix.service || true
+  fi
 fi
